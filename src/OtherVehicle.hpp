@@ -10,15 +10,13 @@ public:
                float vy,
                float s,
                float d):id(id)
-    ,x(x),y(y),vx(vx),vy(vy),s(s),d(d),isEmpty(false){}
+    ,x(x),y(y),vx(vx),vy(vy),s(s),d(d){}
 
-  OtherVehicle(void) {
+  OtherVehicle() {
     OtherVehicle(0,0,0,0,0,0,0);
-    isEmpty = true;
   }
 
-  bool isEmpty;
-  int id;
+  int id = 0;
   float x;
   float y;
   float vx;
