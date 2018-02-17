@@ -12,6 +12,8 @@
 #include "Map.hpp"
 #include "spline.h"
 
+#define TIME_INTERVAL 0.02f
+
 using namespace std;
 
 class Planner {
@@ -60,7 +62,9 @@ private:
   void keep_lane(vector<double> &next_x_vals,
                  vector<double> &next_y_vals);
 
-  float set_speed(float desired);
+  float set_speed(float desired, float pre_speed);
+  float inc2MPH(float inc);
+  float MPH2inc(float MPH);
 };
 
 #endif //PLANNER_H

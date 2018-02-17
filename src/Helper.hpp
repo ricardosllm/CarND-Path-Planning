@@ -48,6 +48,20 @@ public:
                            vector<double> &sorc2,
                            double times_by);
 
+  void updateGraphFromFile(double value);
+
+  void plot(vector<vector<double> > &data);
+  void plot(vector<double> &x ,
+            vector<double> &y,
+            char const* color);
+
+  void twoPlot(vector<double> &x ,
+               vector<double> &y,
+               char const* color,
+               vector<double> &x1 ,
+               vector<double> &y1,
+               char const* color1);
+
 private:
   FILE *myfile;
   FILE *gp_;

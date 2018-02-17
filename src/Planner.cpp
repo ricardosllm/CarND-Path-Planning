@@ -44,42 +44,47 @@ void Planner::update(double car_x,
 
 void Planner::keep_lane(vector<double> &next_x_vals,
                         vector<double> &next_y_vals){
-  double pos_x;
-  double pos_y;
-  double angle;
+  int not_met_path_size = m_previous_path_x.size();
+  int path_length = 50;
+  int n_set_points_from_pre_path = min(10, not_met_path_size);
+  int idx_first_unmet_set_point_from_pre_path = path_length - not_met_path_size;
+  vector<double> planned_s;
+  static vector<double> pre_planned_s;
 
-  int path_size = fmin(m_previous_path_x.size(), 20);
-  double new_start_s;
+  if (not_met_path_size==0){
+    planned_s.push_back( m_car_s );
 
-  for (int i=0; i<path_size; i++) {
-    next_x_vals.push_back(m_previous_path_x[i]);
-    next_y_vals.push_back(m_previous_path_y[i]);
-  }
+    double dist_inc=MPH2inc(m_car_speed) ;
 
-  if (path_size==0) {
-    pos_x = m_car_x;
-    pos_y = m_car_y;
-    angle = m_helper.deg2rad(m_car_yaw);
-    new_start_s = m_car_s;
+    for (int i=0; i<path_length-1 ; i++){
+      dist_inc = set_speed (48, inc2MPH(dist_inc));//MPH
+      planned_s.push_back(planned_s.back() + dist_inc);
+    }
   } else {
-    pos_x = m_previous_path_x[path_size-1];
-    pos_y = m_previous_path_y[path_size-1];
+    for (int i=0; i<n_set_points_from_pre_path; i++){
+      planned_s.push_back(pre_planned_s[idx_first_unmet_set_point_from_pre_path + i]);
+    }
 
-    double pos_x2 = m_previous_path_x[path_size-2];
-    double pos_y2 = m_previous_path_y[path_size-2];
-    angle = atan2(pos_y-pos_y2,pos_x-pos_x2);
+    int len = planned_s.size();
+    double dist_inc =planned_s[len-1]-planned_s[len-2];
 
-    new_start_s = m_end_path_s;
+    for (int i=n_set_points_from_pre_path; i<path_length ; i++){
+      dist_inc = set_speed (48,inc2MPH(dist_inc));//MPH
+      planned_s.push_back(planned_s.back() + dist_inc);
+    }
   }
 
-  double dist_inc = set_speed (10); // MPH
-  for (int i=0; i< 50-path_size; i++){
-    double s_t = new_start_s + dist_inc * i;
-    double ne_x = m_lane2_x(s_t);
-    double ne_y = m_lane2_y(s_t);
-    next_x_vals.push_back(ne_x);
-    next_y_vals.push_back(ne_y);
+  for (auto it=planned_s.begin() ; it<planned_s.end(); it++){
+    double s_p = *it;
+    next_x_vals.push_back(m_lane2_x(s_p));
+    next_y_vals.push_back(m_lane2_y(s_p));
   }
+  pre_planned_s = planned_s;
+  // m_tools.twoPlot(m_map.m_map_waypoints_x,
+  //                 m_map.m_map_waypoints_y,
+  //                 "blue",
+  //                 next_x_vals,next_y_vals,
+  //                 "red");
 }
 
 void Planner::get_path(vector<double> &next_x_vals,
@@ -87,9 +92,24 @@ void Planner::get_path(vector<double> &next_x_vals,
   keep_lane(next_x_vals, next_y_vals);
 }
 
-float Planner::set_speed(float desired){
-  desired *= 0.44704;               // convert mph to m/s
-  const float time_interval = 0.02; // second between each point
-  float inc = desired * time_interval;
+float Planner::set_speed(float desired, float pre_speed){
+  float step = 0.4;
+  if (desired - pre_speed < 1.){
+    step *= -1;
+  } else if(fabs(desired - pre_speed) < 1.){
+    step = 0;
+  }
+
+  float inc = MPH2inc(pre_speed+step);
+  return inc;
+}
+
+float Planner::inc2MPH(float inc){
+  float mph =inc / TIME_INTERVAL / 0.44704;
+  return mph;
+}
+
+float Planner::MPH2inc(float MPH){
+  float inc =MPH * TIME_INTERVAL *0.44704;
   return inc;
 }
