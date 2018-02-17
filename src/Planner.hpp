@@ -68,7 +68,7 @@ private:
   vector<OtherVehicle> m_sensor_fusion;
   vector<OtherVehicle> m_front_car;
 
-  Track m_left,m_center,m_right;
+  vector<Track> m_lanes; // left, center,right
   Track m_change;
 
   void keep_track(vector<double> &next_x_vals,
@@ -83,20 +83,24 @@ private:
 
   double MPH2inc(double MPH);
 
-  OtherVehicle get_front_car(double d,double planned_s, double secure_dist);
+  void get_front_car(OtherVehicle &result1,
+                     double d,
+                     double planned_s,
+                     double secure_dist,
+                     float secure_dist_neg);
 
   vector<OtherVehicle> cars_on_the_side(double d);
 
   vector<OtherVehicle> cars_on_this_lane(double d,
                                          vector<OtherVehicle> &among_these_cars);
 
-  OtherVehicle closest_car(double s,vector<OtherVehicle> &among_these_cars);
+  OtherVehicle closest_car(double s,
+                           vector<OtherVehicle> &among_these_cars,
+                           float secure_dist_neg);
 
-  void setup_lane_changing(Track target, Track curr ,float s_obstacle);
+  void setup_lane_changing(Track &target, Track &curr ,float s_obstacle);
 
-  void change_lane_to(Track lane);
-
-  void best_escape_lane(Track &current_lane, Track &target);
+  void best_escape_lane(Track &current_lane, Track &target, float secure_dist);
 };
 
 #endif //PLANNER_H

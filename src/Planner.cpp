@@ -3,6 +3,11 @@
 Planner::Planner() {
   m_helper = helper();
   m_change_status = Planner::KEEPING_LANE;
+
+  OtherVehicle empty_car;
+
+  for (int i=0; i<3; i ++)
+    m_front_car.push_back(empty_car);
 }
 
 Planner::~Planner() {}
@@ -10,31 +15,37 @@ Planner::~Planner() {}
 void Planner::set_map(Map &map){
   m_map = map;
 
-  m_left = Track(m_map.m_map_waypoints_s,
-                 m_helper.operation(m_map.m_map_waypoints_x,
-                                    m_map.m_map_waypoints_dx,2),
-                 m_helper.operation(m_map.m_map_waypoints_y,
-                                    m_map.m_map_waypoints_dy,2),
-                 1);
+  Track left = Track(m_map.m_map_waypoints_s,
+                     m_helper.operation(m_map.m_map_waypoints_x,
+                                        m_map.m_map_waypoints_dx,2),
+                     m_helper.operation(m_map.m_map_waypoints_y,
+                                        m_map.m_map_waypoints_dy,2),
+                     1, 2.0);
 
-  m_center = Track(m_map.m_map_waypoints_s,
-                   m_helper.operation(m_map.m_map_waypoints_x,
-                                      m_map.m_map_waypoints_dx,6),
-                   m_helper.operation(m_map.m_map_waypoints_y,
-                                      m_map.m_map_waypoints_dy,6),
-                   2);
+  Track center = Track(m_map.m_map_waypoints_s,
+                       m_helper.operation(m_map.m_map_waypoints_x,
+                                          m_map.m_map_waypoints_dx,6),
+                       m_helper.operation(m_map.m_map_waypoints_y,
+                                          m_map.m_map_waypoints_dy,6),
+                       2, 6.0);
 
-  m_right = Track(m_map.m_map_waypoints_s,
-                  m_helper.operation(m_map.m_map_waypoints_x,
-                                     m_map.m_map_waypoints_dx,10),
-                  m_helper.operation(m_map.m_map_waypoints_y,
-                                     m_map.m_map_waypoints_dy,10),
-                  3);
+  Track right = Track(m_map.m_map_waypoints_s,
+                      m_helper.operation(m_map.m_map_waypoints_x,
+                                         m_map.m_map_waypoints_dx,10),
+                      m_helper.operation(m_map.m_map_waypoints_y,
+                                         m_map.m_map_waypoints_dy,10),
+                      3, 10.0);
 
-  m_left.priority_to_change_to.push_back(m_center);
-  m_center.priority_to_change_to.push_back(m_left);
-  m_center.priority_to_change_to.push_back(m_right);
-  m_right.priority_to_change_to.push_back(m_center);
+  left.priority_to_change_to.push_back(center);
+  left.priority_to_change_to.push_back(left);
+  center.priority_to_change_to.push_back(left);
+  center.priority_to_change_to.push_back(right);
+  center.priority_to_change_to.push_back(center);
+  right.priority_to_change_to.push_back(center);
+  right.priority_to_change_to.push_back(right);
+  m_lanes.push_back(left);
+  m_lanes.push_back(center);
+  m_lanes.push_back(right);
 }
 
 void Planner::update(double car_x,
@@ -67,7 +78,7 @@ void Planner::keep_track(vector<double> &next_x_vals,
                          int path_length,
                          Track &lane){
   int not_met_path_size = m_previous_path_x.size();
-  int n_set_points_from_pre_path = min(10, not_met_path_size);
+  int n_set_points_from_pre_path = min(20, not_met_path_size);
   int idx_first_unmet_set_point_from_pre_path = path_length - not_met_path_size;
   vector<double> planned_s;
   static vector<double> pre_planned_s;
@@ -107,81 +118,85 @@ void Planner::get_path(vector<double> &next_x_vals,
                        vector<double> &next_y_vals){
   float speed = TARGET_SPEED;
   int path_length = 50;
-  float secure_dist = speed * MPH2MS * path_length * TIME_INTERVAL;
+  float secure_dist = (speed + 20) * MPH2MS * path_length * TIME_INTERVAL;
 
-  // detect the front car
-  OtherVehicle front_car_left   = get_front_car(2.0,m_car_s,secure_dist);
-  OtherVehicle front_car_center = get_front_car(6.0,m_car_s,secure_dist);
-  OtherVehicle front_car_right  = get_front_car(10.0,m_car_s,secure_dist);
+  Track lane;
+  // Get current lane
+  for (auto it=m_lanes.begin(); it<m_lanes.end() ; it++){
+    lane = *it;
+    if (fabs(m_car_d-lane.m_d)<1.5){ // I Am in this lane
+      break;
+    }
+  }
 
-  m_front_car.empty();
-  m_front_car.push_back(front_car_left);
-  m_front_car.push_back(front_car_center);
-  m_front_car.push_back(front_car_right);
+  if(lane.m_id == 3)
+    speed = 46;
+
+  // detect the space to change lanes
+  for (int idx = 0 ; idx < m_front_car.size(); idx++){
+    m_front_car[idx].isEmpty = true; //reset it
+
+    if (idx == (lane.m_id - 1)) {
+      get_front_car(m_front_car[idx],
+                    m_lanes[idx].m_d,
+                    m_car_s,
+                    secure_dist,
+                    0);
+    } else {
+      get_front_car(m_front_car[idx],
+                    m_lanes[idx].m_d,
+                    m_car_s,
+                    secure_dist + 20.0,
+                    -10.0);
+    }
+  }
 
   switch (m_change_status){
   case CHANGING_LANE:
-    if (m_car_s + secure_dist < m_change.m_s_end){
-      keep_track(next_x_vals,
-                 next_y_vals,
-                 speed,
-                 path_length,
-                 m_change);
-    } else {
+    speed = TARGET_SPEED * 0.80; // Optimal speed for lane changing
+
+    keep_track(next_x_vals, next_y_vals, speed, path_length, m_change);
+
+    if (m_car_s + secure_dist >= m_change.m_s_end){
       m_change_status = KEEPING_LANE;
     }
     break;
   case KEEPING_LANE:
-    if (fabs(m_car_d-6.0)<1.0){ // In second lane
+    OtherVehicle car = m_front_car[lane.m_id-1];
 
+    if ( !(car.isEmpty) ){ // If there is a car in front on this line
+      Track target;
+      best_escape_lane(lane, target, secure_dist);
 
-      if (front_car_center.id != 0){ //front_car_center.id != 0
-        Track target;
-        best_escape_lane(m_center,target);
+      float s_diff = car.s-m_car_s;
+      speed = inc2MPH(s_diff/path_length);
 
-        if (target.m_id != m_center.m_id){
-          setup_lane_changing(target,  // front_car_center.s
-                              m_center,
-                              front_car_center.s);
-        }
+      // if the target lane is not the same as current lane
+      if (target.m_id != lane.m_id){
+        setup_lane_changing(target, lane,car.s);
+        keep_track(next_x_vals, next_y_vals, speed, path_length, m_change);
+        break;
 
-        float s_diff = front_car_center.s-m_car_s;
-        speed = inc2MPH(s_diff/path_length);
-        keep_track(next_x_vals,
-                   next_y_vals,
-                   speed,
-                   path_length,
-                   m_center);
-
-      } else { // no car in front
-        keep_track(next_x_vals,
-                   next_y_vals,
-                   speed,
-                   path_length,
-                   m_center);
+      } else {
+        // if the target lane is the same as current lane
+        // avoid crashing into the car in front
+        speed = sqrt(car.vx*car.vx + car.vy * car.vy);
+        keep_track(next_x_vals, next_y_vals, speed, path_length, lane);
+        break;
       }
-    } else if (fabs(m_car_d-2.0)<1.0){ // In left lane
-      keep_track(next_x_vals,
-                 next_y_vals,
-                 speed,
-                 path_length,
-                 m_left);
-    } else if (fabs(m_car_d-10.0)<1.0){ // In right lane
-      keep_track(next_x_vals,
-                 next_y_vals,
-                 speed,
-                 path_length,
-                 m_right);
+    } else { // no car in front
+      keep_track(next_x_vals, next_y_vals, speed, path_length, lane);
+      break;
     }
     break;
   }
 }
 
 double Planner::set_speed(double desired, double pre_speed){
-  double step = 0.2;
-  if (desired - pre_speed < 1.){
-    step *= -1;
-  } else if(fabs(desired - pre_speed) < 1.){
+  double error = desired - pre_speed;
+  double step = 0.005 * error;
+
+  if (fabs(error) < 0.01){
     step = 0;
   }
 
@@ -199,21 +214,24 @@ double Planner::MPH2inc(double MPH){
   return inc;
 }
 
-OtherVehicle Planner::get_front_car(double d, double planned_s, double secure_dist){
-  OtherVehicle result = OtherVehicle();
+void Planner::get_front_car(OtherVehicle &result1, double d, double planned_s,
+                            double secure_dist, float secure_dist_neg){
+  OtherVehicle result;
+
   vector<OtherVehicle> CarsInMySide;
   vector<OtherVehicle> CarsInMyLane;
 
   CarsInMySide = cars_on_the_side(d);
   CarsInMyLane = cars_on_this_lane(d,CarsInMySide);
-
-  OtherVehicle front_car = closest_car(planned_s,CarsInMyLane);
+  OtherVehicle front_car = closest_car(planned_s, CarsInMyLane, secure_dist_neg);
 
   if (front_car.s - planned_s < secure_dist &&
-      front_car.s > planned_s &&
-      CarsInMyLane.size()!=0)
+      front_car.s - planned_s > secure_dist_neg &&
+      CarsInMyLane.size()!=0) {
     result = front_car;
-  return result;
+  }
+
+  result1 = result;
 }
 
 vector<OtherVehicle> Planner::cars_on_the_side(double d){
@@ -245,7 +263,8 @@ vector<OtherVehicle> Planner::cars_on_this_lane(double d,
 }
 
 OtherVehicle Planner::closest_car(double s,
-                                  vector<OtherVehicle> &among_these_cars){
+                                  vector<OtherVehicle> &among_these_cars,
+                                  float secure_dist_neg){
   OtherVehicle result;
 
   if (among_these_cars.size()!=0){
@@ -254,24 +273,22 @@ OtherVehicle Planner::closest_car(double s,
     for (auto it=among_these_cars.begin() ; it<among_these_cars.end() ; it++){
       OtherVehicle car = *it;
 
-      if (car.s - s > 0 && car.s-s < shortest_dist ){
-        shortest_dist = car.s-s;
-        result = car;
-      }
-    }
-  }
-  return result;
+      if (car.s - s > secure_dist_neg && fabs(car.s-s) < shortest_dist){
+				shortest_dist = car.s-s;
+				result = car;
+			}
+		}
+	}
+	return result;
 }
 
-void Planner::change_lane_to(Track lane){
-  m_change_status = Planner::CHANGING_LANE;
-}
+void Planner::setup_lane_changing(Track &target, Track &curr ,float s_obstacle){
+  vector<double> x, y, s_;
 
-void Planner::setup_lane_changing(Track target, Track curr ,float s_obstacle){
-  vector<double> x,y,s_;
-  float s = m_car_s;
-  float inc =1.0;
-  while (s < s_obstacle){
+  float s = m_car_s - 20.0;
+  float inc = 1.0;
+
+  while(s < s_obstacle){
     s += inc;
     double temp_x = curr.m_s_x(s);
     double temp_y = curr.m_s_y(s);
@@ -283,7 +300,7 @@ void Planner::setup_lane_changing(Track target, Track curr ,float s_obstacle){
   s += 40;
   float d = s + 40;
 
-  while (s < d){
+  while(s < d){
     s += inc;
     double temp_x = target.m_s_x(s);
     double temp_y = target.m_s_y(s);
@@ -292,29 +309,31 @@ void Planner::setup_lane_changing(Track target, Track curr ,float s_obstacle){
     y.push_back(temp_y);
   }
 
-  m_change = Track(s_, x, y, 0);
+  m_change = Track(s_,x,y,0,0);
   m_change.m_s_end = s;
-  m_change.m_s_x.set_points(s_, x);
-  m_change.m_s_y.set_points(s_, y);
+  m_change.m_s_x.set_points(s_,x);
+  m_change.m_s_y.set_points(s_,y);
   m_change_status = CHANGING_LANE;
-  m_helper.twoPlot(m_map.m_map_waypoints_x,
-                   m_map.m_map_waypoints_y,
-                   "blue",
-                   x,
-                   y,
-                   "red");
 }
 
-void Planner::best_escape_lane(Track &current_lane, Track &target){
+void Planner::best_escape_lane(Track &current_lane, Track &target, float secure_dist){
   Track result;
   float dist = INFINITY;
 
   for (int i=0; i<current_lane.priority_to_change_to.size(); i++){
-    int id = current_lane.priority_to_change_to[i].m_id;
+    int id = current_lane.priority_to_change_to[i].m_id - 1;
+    float s_diff = m_front_car[id].s - m_car_s;
 
-    if (m_front_car[id].s < dist){
-      dist = m_front_car[id].s;
+    if (m_front_car[id].isEmpty){
       result = current_lane.priority_to_change_to[i];
+      break;
+    } else if (s_diff < dist && s_diff > -secure_dist){
+      dist = m_front_car[id].s - m_car_s;
+      result = current_lane.priority_to_change_to[i];
+
+      if (dist < secure_dist) {
+        result = current_lane;
+      }
     }
   }
   target = result;
