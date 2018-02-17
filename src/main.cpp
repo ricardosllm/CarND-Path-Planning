@@ -79,7 +79,7 @@ int main() {
               map_waypoints_dx,
               map_waypoints_dy);
 
-  planner.set_map(thisMap);
+  planner.set_map(thisMap, max_s);
 
   h.onMessage([&map_waypoints_x,
                &map_waypoints_y,

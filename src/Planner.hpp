@@ -15,7 +15,7 @@
 
 #define TIME_INTERVAL 0.02f
 #define MPH2MS				0.44704
-#define TARGET_SPEED  48.5 // MPH
+#define TARGET_SPEED  47.5 // MPH
 
 using namespace std;
 
@@ -45,12 +45,13 @@ public:
   void get_path(vector<double> &next_x_vals,
                 vector<double> &next_y_vals);
 
-  void set_map(Map &map);
+  void set_map(Map &map, double max_s);
 
 private:
   helper m_helper;
 
   Map m_map;
+  double m_max_s;
 
   double m_car_x;
   double m_car_y;

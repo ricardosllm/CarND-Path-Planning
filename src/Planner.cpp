@@ -12,7 +12,7 @@ Planner::Planner() {
 
 Planner::~Planner() {}
 
-void Planner::set_map(Map &map){
+void Planner::set_map(Map &map, double max_s){
   m_map = map;
 
   Track left = Track(m_map.m_map_waypoints_s,
@@ -46,6 +46,7 @@ void Planner::set_map(Map &map){
   m_lanes.push_back(left);
   m_lanes.push_back(center);
   m_lanes.push_back(right);
+  m_max_s = max_s;
 }
 
 void Planner::update(double car_x,
@@ -84,7 +85,7 @@ void Planner::keep_track(vector<double> &next_x_vals,
   static vector<double> pre_planned_s;
 
   if (not_met_path_size==0){
-    planned_s.push_back(m_car_s + 0.5);
+    planned_s.push_back(m_car_s + 0.005);
 
     double dist_inc=MPH2inc(m_car_speed) ;
 
@@ -98,11 +99,22 @@ void Planner::keep_track(vector<double> &next_x_vals,
     }
 
     int len = planned_s.size();
-    double dist_inc =planned_s[len-1]-planned_s[len-2];
+    double dist_inc = planned_s[len-1] - planned_s[len-2];
+
+    if (dist_inc <= 0) {
+      std::cout << "Reset: "
+                << dist_inc
+                << ", "
+                << "Max_s: " << m_max_s
+                << std::endl;
+      dist_inc += m_max_s;
+    }
 
     for (int i=n_set_points_from_pre_path; i<path_length ; i++){
-      dist_inc = set_speed (speed, inc2MPH(dist_inc));
-      planned_s.push_back(planned_s.back() + dist_inc);
+      dist_inc = set_speed(speed, inc2MPH(dist_inc));
+      double new_s = fmod(planned_s.back() + dist_inc, m_max_s);
+
+      planned_s.push_back(new_s);
     }
   }
 
@@ -124,13 +136,14 @@ void Planner::get_path(vector<double> &next_x_vals,
   // Get current lane
   for (auto it=m_lanes.begin(); it<m_lanes.end() ; it++){
     lane = *it;
-    if (fabs(m_car_d-lane.m_d)<1.5){ // I Am in this lane
+    if (fabs(m_car_d-lane.m_d) < 1.5){ // I Am in this lane
       break;
     }
   }
 
-  if(lane.m_id == 3)
+  if(lane.m_id == 3) {
     speed = 46;
+  }
 
   // detect the space to change lanes
   for (int idx = 0 ; idx < m_front_car.size(); idx++){
@@ -153,7 +166,7 @@ void Planner::get_path(vector<double> &next_x_vals,
 
   switch (m_change_status){
   case CHANGING_LANE:
-    speed = TARGET_SPEED * 0.80; // Optimal speed for lane changing
+    // speed = TARGET_SPEED * 0.80; // Optimal speed for lane changing
 
     keep_track(next_x_vals, next_y_vals, speed, path_length, m_change);
 
@@ -169,18 +182,18 @@ void Planner::get_path(vector<double> &next_x_vals,
       best_escape_lane(lane, target, secure_dist);
 
       float s_diff = car.s-m_car_s;
-      speed = inc2MPH(s_diff/path_length);
+      speed = inc2MPH(s_diff / path_length);
 
       // if the target lane is not the same as current lane
       if (target.m_id != lane.m_id){
-        setup_lane_changing(target, lane,car.s);
+        setup_lane_changing(target, lane, car.s);
         keep_track(next_x_vals, next_y_vals, speed, path_length, m_change);
         break;
 
       } else {
         // if the target lane is the same as current lane
         // avoid crashing into the car in front
-        speed = sqrt(car.vx*car.vx + car.vy * car.vy);
+        speed = fmin(sqrt(car.vx*car.vx + car.vy * car.vy), TARGET_SPEED);
         keep_track(next_x_vals, next_y_vals, speed, path_length, lane);
         break;
       }
@@ -193,15 +206,21 @@ void Planner::get_path(vector<double> &next_x_vals,
 }
 
 double Planner::set_speed(double desired, double pre_speed){
+  // double error = desired - pre_speed;
+  // double step = 0.005 * error;
+
+  // if (fabs(error) < 0.01){
+  //   step = 0;
+  // }
+
+  // double inc = MPH2inc(pre_speed + step);
+  // return inc;
+
+
   double error = desired - pre_speed;
-  double step = 0.005 * error;
 
-  if (fabs(error) < 0.01){
-    step = 0;
-  }
-
-  double inc = MPH2inc(pre_speed + step);
-  return inc;
+  double sign = (0.0 < error) - (error < 0.0);
+  return MPH2inc(sign * 0.224 + pre_speed);
 }
 
 double Planner::inc2MPH(double inc){
@@ -222,12 +241,13 @@ void Planner::get_front_car(OtherVehicle &result1, double d, double planned_s,
   vector<OtherVehicle> CarsInMyLane;
 
   CarsInMySide = cars_on_the_side(d);
-  CarsInMyLane = cars_on_this_lane(d,CarsInMySide);
+  CarsInMyLane = cars_on_this_lane(d, CarsInMySide);
+
   OtherVehicle front_car = closest_car(planned_s, CarsInMyLane, secure_dist_neg);
 
   if (front_car.s - planned_s < secure_dist &&
       front_car.s - planned_s > secure_dist_neg &&
-      CarsInMyLane.size()!=0) {
+      CarsInMyLane.size() != 0) {
     result = front_car;
   }
 
@@ -250,7 +270,7 @@ vector<OtherVehicle> Planner::cars_on_this_lane(double d,
                                                 vector<OtherVehicle> &among_these_cars){
   vector<OtherVehicle> result;
 
-  if (among_these_cars.size()!=0){
+  if (among_these_cars.size() != 0){
     for (auto it=among_these_cars.begin() ; it<among_these_cars.end() ; it++){
       OtherVehicle car = *it;
 
@@ -267,7 +287,7 @@ OtherVehicle Planner::closest_car(double s,
                                   float secure_dist_neg){
   OtherVehicle result;
 
-  if (among_these_cars.size()!=0){
+  if (among_these_cars.size() != 0){
     double shortest_dist = INFINITY;
 
     for (auto it=among_these_cars.begin() ; it<among_these_cars.end() ; it++){
