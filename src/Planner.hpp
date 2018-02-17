@@ -9,6 +9,10 @@
 
 #include "Helper.hpp"
 #include "OtherVehicle.hpp"
+#include "Map.hpp"
+#include "spline.h"
+
+using namespace std;
 
 class Planner {
 public:
@@ -28,8 +32,15 @@ public:
               double end_path_d,
               vector<OtherVehicle> &sensor_fusion);
 
+  void set_map(Map &map);
+
+  void get_path(vector<double> &next_x_vals,
+                vector<double> &next_y_vals);
+
 private:
   helper m_helper;
+
+  Map m_map;
 
   double m_car_x;
   double m_car_y;
@@ -43,6 +54,13 @@ private:
   double m_end_path_d;
   vector<OtherVehicle> m_sensor_fusion;
   vector<OtherVehicle> m_front_car;
+
+  tk::spline m_lane2_x,m_lane2_y;
+
+  void keep_lane(vector<double> &next_x_vals,
+                 vector<double> &next_y_vals);
+
+  float set_speed(float desired);
 };
 
 #endif //PLANNER_H

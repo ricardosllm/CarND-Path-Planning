@@ -141,3 +141,13 @@ vector<double> helper::getXY(double s, double d,
 
     return {x,y};
 }
+
+vector<double> helper::operation(vector<double> &sorc1,
+                                 vector<double> &sorc2,
+                                 double times_by){
+  vector<double> result;
+  for (int i=0; i<sorc1.size(); i++){
+    result.push_back(sorc1[i] + sorc2[i]*times_by);
+  }
+  return result;
+}
