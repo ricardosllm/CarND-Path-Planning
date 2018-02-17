@@ -32,10 +32,10 @@ public:
               double end_path_d,
               vector<OtherVehicle> &sensor_fusion);
 
-  void set_map(Map &map);
-
   void get_path(vector<double> &next_x_vals,
                 vector<double> &next_y_vals);
+
+  void set_map(Map &map);
 
 private:
   helper m_helper;
@@ -53,7 +53,7 @@ private:
   double m_end_path_s;
   double m_end_path_d;
   vector<OtherVehicle> m_sensor_fusion;
-  vector<OtherVehicle> m_front_car;
+  // vector<OtherVehicle> m_front_car;
 
   tk::spline m_lane2_x,m_lane2_y;
 

@@ -2,7 +2,6 @@
 
 Planner::Planner() {
   m_helper = helper();
-
 }
 
 Planner::~Planner() {}
@@ -43,23 +42,18 @@ void Planner::update(double car_x,
   m_sensor_fusion = sensor_fusion;
 }
 
-void Planner::get_path(vector<double> &next_x_vals,
-                       vector<double> &next_y_vals){
-  keep_lane(next_x_vals,next_y_vals);
-}
-
 void Planner::keep_lane(vector<double> &next_x_vals,
                         vector<double> &next_y_vals){
   double pos_x;
   double pos_y;
   double angle;
 
-  int path_size = fmin( m_previous_path_x.size() , 20);
+  int path_size = fmin(m_previous_path_x.size(), 20);
   double new_start_s;
 
   for (int i=0; i<path_size; i++) {
-      next_x_vals.push_back(m_previous_path_x[i]);
-      next_y_vals.push_back(m_previous_path_y[i]);
+    next_x_vals.push_back(m_previous_path_x[i]);
+    next_y_vals.push_back(m_previous_path_y[i]);
   }
 
   if (path_size==0) {
@@ -86,6 +80,11 @@ void Planner::keep_lane(vector<double> &next_x_vals,
     next_x_vals.push_back(ne_x);
     next_y_vals.push_back(ne_y);
   }
+}
+
+void Planner::get_path(vector<double> &next_x_vals,
+                       vector<double> &next_y_vals){
+  keep_lane(next_x_vals, next_y_vals);
 }
 
 float Planner::set_speed(float desired){

@@ -10,6 +10,9 @@
 #include "json.hpp"
 
 #include "Planner.hpp"
+#include <typeinfo>
+#include "OtherVehicle.hpp"
+#include "Map.hpp"
 
 using namespace std;
 
@@ -30,9 +33,6 @@ string hasData(string s) {
   }
   return "";
 }
-
-Planner planner();
-
 
 int main() {
   uWS::Hub h;
@@ -85,9 +85,12 @@ int main() {
                &map_waypoints_y,
                &map_waypoints_s,
                &map_waypoints_dx,
-               &map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws,
-                                  char *data, size_t length,
-                                  uWS::OpCode opCode) {
+               &map_waypoints_dy,
+               &planner,
+               &thisMap](uWS::WebSocket<uWS::SERVER> ws,
+                         char *data,
+                         size_t length,
+                         uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -139,7 +142,7 @@ int main() {
             }
 
             int N_other_cars = sensor_fusion.size();
-            vector<Other_car> other_cars;
+            vector<OtherVehicle> other_cars;
             if (N_other_cars) {
               for (int i=0; i<N_other_cars ; i++){
                 OtherVehicle car(sensor_fusion[i][0],
