@@ -1,5 +1,13 @@
 #include "Helper.hpp"
 
+helper::helper(){
+  myfile = std::fopen("graph1","w");
+  std::fclose(myfile);
+
+  gp_ = popen("gnuplot -persist" , "w");
+}
+helper::~helper(){}
+
 // Transform from Cartesian x,y coordinates to Frenet s,d coordinates
 vector<double> helper::getFrenet(double x, double y,
                                  double theta,
