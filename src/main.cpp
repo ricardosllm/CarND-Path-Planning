@@ -171,8 +171,6 @@ int main() {
             planner.get_path(next_x_vals,
                              next_y_vals);
 
-            // TODO: define a path made up of (x,y)
-            //       points that the car will visit sequentially every .02 seconds
             msgJson["next_x"] = next_x_vals;
             msgJson["next_y"] = next_y_vals;
 

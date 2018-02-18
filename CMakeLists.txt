@@ -8,7 +8,7 @@ set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
 set(sources src/main.cpp src/Helper.cpp src/Planner.cpp src/Map.hpp
-  src/OtherVehicle.hpp src/spline.h src/Track.hpp)
+  src/OtherVehicle.hpp src/spline.h src/Lane.hpp)
 
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 

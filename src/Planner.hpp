@@ -11,7 +11,7 @@
 #include "OtherVehicle.hpp"
 #include "Map.hpp"
 #include "spline.h"
-#include "Track.hpp"
+#include "Lane.hpp"
 
 #define TIME_INTERVAL 0.02f
 #define MPH2MS				0.44704
@@ -69,14 +69,14 @@ private:
   vector<OtherVehicle> m_sensor_fusion;
   vector<OtherVehicle> m_front_car;
 
-  vector<Track> m_lanes; // left, center,right
-  Track m_change;
+  vector<Lane> m_lanes; // left, center,right
+  Lane m_change;
 
-  void keep_track(vector<double> &next_x_vals,
-                  vector<double> &next_y_vals,
-                  float speed,
-                  int path_length,
-                  Track &lane);
+  void keep_lane(vector<double> &next_x_vals,
+                 vector<double> &next_y_vals,
+                 float speed,
+                 int path_length,
+                 Lane &lane);
 
   double set_speed(double desired, double pre_speed);
 
@@ -99,9 +99,9 @@ private:
                            vector<OtherVehicle> &among_these_cars,
                            float secure_dist_neg);
 
-  void setup_lane_changing(Track &target, Track &curr ,float s_obstacle);
+  void setup_lane_changing(Lane &target, Lane &curr ,float s_obstacle);
 
-  void best_escape_lane(Track &current_lane, Track &target, float secure_dist);
+  void best_escape_lane(Lane &current_lane, Lane &target, float secure_dist);
 };
 
 #endif //PLANNER_H
